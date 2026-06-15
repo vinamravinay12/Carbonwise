@@ -1,5 +1,9 @@
 package com.rivi.carbonwise.ui.screens
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,13 +35,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rivi.carbonwise.ServiceLocator
+import com.rivi.carbonwise.data.DetectedTrip
 import com.rivi.carbonwise.ui.HomeViewModel
 import com.rivi.carbonwise.ui.components.SectionLabel
 
@@ -54,6 +63,41 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
+    var tripToConfirm by remember { mutableStateOf<DetectedTrip?>(null) }
+
+    // System permission flow for Activity Recognition (+ notifications on API 33+).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        val granted = result[Manifest.permission.ACTIVITY_RECOGNITION] ?: true
+        viewModel.onActivityPermissionResult(granted)
+    }
+    LaunchedEffect(state.requestPermission) {
+        if (state.requestPermission) {
+            val perms = buildList {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    add(Manifest.permission.ACTIVITY_RECOGNITION)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+            viewModel.consumePermissionRequest()
+            if (perms.isNotEmpty()) permissionLauncher.launch(perms.toTypedArray())
+            else viewModel.onActivityPermissionResult(true)
+        }
+    }
+
+    tripToConfirm?.let { trip ->
+        ConfirmDetectionDialog(
+            trip = trip,
+            onConfirm = { type, km ->
+                viewModel.confirmDetection(trip, type, km)
+                tripToConfirm = null
+            },
+            onCancel = { tripToConfirm = null },
+        )
+    }
 
     Column(
         modifier = modifier
@@ -63,6 +107,20 @@ fun HomeScreen(
     ) {
         Spacer(Modifier.height(16.dp))
         Header(usingAi = ServiceLocator.usingAi)
+        Spacer(Modifier.height(20.dp))
+
+        AutoTrackingCard(
+            enabled = state.trackingEnabled,
+            onToggle = viewModel::onToggleTracking,
+        )
+        if (state.pendingDetections.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            PendingDetectionsSection(
+                detections = state.pendingDetections,
+                onPick = { tripToConfirm = it },
+                onDismiss = viewModel::dismissDetection,
+            )
+        }
         Spacer(Modifier.height(20.dp))
 
         if (state.result != null) {

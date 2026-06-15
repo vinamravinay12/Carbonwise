@@ -17,7 +17,7 @@ import kotlinx.serialization.json.Json
  */
 class GeminiParser(
     apiKey: String,
-    modelName: String = "gemini-1.5-flash",
+    modelName: String = "gemini-2.5-flash",
 ) : ActivityParser {
 
     private val model = GenerativeModel(

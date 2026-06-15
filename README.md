@@ -30,6 +30,7 @@ single most effective change you could make.
 | History + 7-day trend | `ui/screens/HistoryScreen.kt`, `TrendsScreen.kt` |
 | Benchmarking (target & average) | `domain/Benchmarks.kt` |
 | Friendly insight phrasing | `domain/InsightPhraser.kt` |
+| Auto-tracking (Activity Recognition) — detect trips, confirm mode + distance | `recognition/` |
 
 ## Architecture
 
@@ -41,7 +42,7 @@ sentence ─▶ ActivityParser ─▶ CarbonEngine ─▶ InsightPhraser ─▶ 
 ```
 
 - **Parsing** sits behind the `ActivityParser` interface with two implementations:
-  - `GeminiParser` — real `gemini-1.5-flash`, strict JSON schema, forbidden by prompt
+  - `GeminiParser` — real `gemini-2.5-flash`, strict JSON schema, forbidden by prompt
     from producing carbon numbers.
   - `RuleBasedParser` — deterministic keyword/quantity parser; the offline-safe
     fallback used for tests and when no API key is configured.
@@ -54,6 +55,13 @@ sentence ─▶ ActivityParser ─▶ CarbonEngine ─▶ InsightPhraser ─▶ 
   swap, so the insight is always present.
 - **Engine** (`CarbonEngine`) is pure Kotlin — no Android, network, or AI — and fully
   unit-tested.
+- **Auto-tracking** (`recognition/`) uses the Google Play Services **Activity Recognition
+  Transition API** to detect when the user starts/stops being `IN_VEHICLE`, `ON_BICYCLE`,
+  `WALKING`, or `RUNNING`. Each finished segment becomes a *pending detection* (with a
+  notification). The API gives the *kind* and *duration* but never the mode or distance, so
+  the user confirms those in one tap — keeping the trust principle intact (nothing guessed).
+  Falls back gracefully: no permission → the toggle is simply off; manual logging is
+  unaffected. GPS-measured distance is the planned step 2.
 - **Storage** is Room, local only. No accounts, no cloud, no sync.
 
 ## Running it
@@ -92,9 +100,12 @@ The Home screen shows an **On-device** / **Gemini** badge reflecting which is ac
 
 ## Scope (intentionally out)
 
-No accounts/login/cloud sync, no background sensors, no gamification, no
-receipt/bill scanning, no social features, no multi-region database. A focused,
-private, single-purpose personal tool.
+No accounts/login/cloud sync, no gamification, no receipt/bill scanning, no social
+features, no multi-region database. A focused, private, single-purpose personal tool.
+
+> The original spec excluded automatic activity detection; auto-tracking via Activity
+> Recognition was added deliberately as a later iteration to make tracking effortless,
+> while preserving the "no guessed numbers" principle (the user confirms mode + distance).
 
 > Emission factors are illustrative and oriented to India — reasonable but not
 > formally audited, kept in one configurable table.

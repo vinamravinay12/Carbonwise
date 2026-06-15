@@ -48,6 +48,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    companion object {
+        /** Notification tap carries the detected-trip id so Today can surface it. */
+        const val EXTRA_OPEN_DETECTION = "extra_open_detection"
+    }
 }
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {

@@ -9,6 +9,7 @@ import com.rivi.carbonwise.parser.ActivityParser
 import com.rivi.carbonwise.parser.FallbackParser
 import com.rivi.carbonwise.parser.GeminiParser
 import com.rivi.carbonwise.parser.RuleBasedParser
+import com.rivi.carbonwise.recognition.ActivityRecognitionManager
 
 /**
  * Tiny manual DI container. Builds the parser stack — Gemini in front of the rule-based
@@ -20,6 +21,9 @@ object ServiceLocator {
     @Volatile
     private var repository: CarbonRepository? = null
 
+    @Volatile
+    private var recognitionManager: ActivityRecognitionManager? = null
+
     /** True when a live Gemini key is wired in; surfaced in the UI as a small badge. */
     var usingAi: Boolean = false
         private set
@@ -29,13 +33,22 @@ object ServiceLocator {
             repository ?: build(context).also { repository = it }
         }
 
+    fun recognitionManager(context: Context): ActivityRecognitionManager =
+        recognitionManager ?: synchronized(this) {
+            recognitionManager
+                ?: ActivityRecognitionManager(context.applicationContext).also {
+                    recognitionManager = it
+                }
+        }
+
     private fun build(context: Context): CarbonRepository {
-        val dao = CarbonDatabase.get(context).entryDao()
+        val db = CarbonDatabase.get(context)
         val key = BuildConfig.GEMINI_API_KEY
         usingAi = key.isNotBlank()
         return CarbonRepository(
-            dao = dao,
+            dao = db.entryDao(),
             parser = buildParser(key),
+            detectedDao = db.detectedSegmentDao(),
             swapAdvisor = buildSwapAdvisor(key),
         )
     }
