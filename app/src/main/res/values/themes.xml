@@ -1,0 +1,9 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base theme; Compose (CarbonWiseTheme) drives all in-app colors. -->
+    <style name="Theme.CarbonWise" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper_light</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

@@ -1,0 +1,9 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark base theme; Compose (CarbonWiseTheme) drives all in-app colors. -->
+    <style name="Theme.CarbonWise" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/paper_dark</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
