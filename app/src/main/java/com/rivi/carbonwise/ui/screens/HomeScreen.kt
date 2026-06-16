@@ -42,18 +42,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
 import com.rivi.carbonwise.ServiceLocator
 import com.rivi.carbonwise.data.DetectedTrip
+import com.rivi.carbonwise.ui.CompareMessage
 import com.rivi.carbonwise.ui.HomeViewModel
+import com.rivi.carbonwise.ui.components.ComparisonCard
 import com.rivi.carbonwise.ui.components.SectionLabel
 
 private val examples = listOf(
     "Drove 15 km to work, had a chicken thali for lunch, ran the AC for 6 hours.",
     "Took the metro 12 km, ate a veg lunch, watched TV for 3 hours.",
     "Cycled to college, had eggs for breakfast and fish curry for dinner.",
+)
+
+private val compareExamples = listOf(
+    "Petrol car vs metro for 20 km",
+    "Chicken thali vs paneer",
+    "Beef vs vegetarian meal",
+    "Auto-rickshaw vs bus for 8 km",
 )
 
 @Composable
@@ -63,7 +75,11 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
+    val context = LocalContext.current
     var tripToConfirm by remember { mutableStateOf<DetectedTrip?>(null) }
+
+    // Re-check tracking + battery-exemption status when returning to the screen.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshReliability() }
 
     // System permission flow for Activity Recognition (+ notifications on API 33+).
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -111,47 +127,97 @@ fun HomeScreen(
     ) {
         Spacer(Modifier.height(16.dp))
         Header(usingAi = ServiceLocator.usingAi)
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
 
-        AutoTrackingCard(
-            enabled = state.trackingEnabled,
-            onToggle = viewModel::onToggleTracking,
-        )
-        if (state.pendingDetections.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            PendingDetectionsSection(
-                detections = state.pendingDetections,
-                onPick = { tripToConfirm = it },
-                onDismiss = viewModel::dismissDetection,
-            )
-        }
-        Spacer(Modifier.height(20.dp))
+        ModeSelector(mode = state.mode, onModeChange = viewModel::onModeChange)
+        Spacer(Modifier.height(18.dp))
 
-        if (state.result != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Today's footprint",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+        when (state.mode) {
+            com.rivi.carbonwise.ui.InputMode.LOG -> {
+                AutoTrackingCard(
+                    enabled = state.trackingEnabled,
+                    needsLocationPermission = state.needsLocationPermission,
+                    needsBatteryExemption = state.needsBatteryExemption,
+                    onToggle = viewModel::onToggleTracking,
+                    onGrantLocation = viewModel::requestTrackingPermissions,
+                    onFixBattery = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
                 )
-                TextButton(onClick = viewModel::clearResult) { Text("Log another") }
+                if (state.pendingDetections.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    PendingDetectionsSection(
+                        detections = state.pendingDetections,
+                        onPick = { tripToConfirm = it },
+                        onDismiss = viewModel::dismissDetection,
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+
+                if (state.result != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Today's footprint",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        TextButton(onClick = viewModel::clearResult) { Text("Log another") }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    DayDetailContent(day = state.result!!)
+                } else {
+                    InputArea(
+                        input = state.input,
+                        isLogging = state.isLogging,
+                        error = state.error,
+                        onChange = viewModel::onInputChange,
+                        onSubmit = viewModel::logDay,
+                    )
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            DayDetailContent(day = state.result!!)
-        } else {
-            InputArea(
-                input = state.input,
-                isLogging = state.isLogging,
-                error = state.error,
-                onChange = viewModel::onInputChange,
-                onSubmit = viewModel::logDay,
-            )
+
+            com.rivi.carbonwise.ui.InputMode.COMPARE -> {
+                CompareArea(
+                    input = state.input,
+                    messages = state.compareMessages,
+                    isComparing = state.isComparing,
+                    error = state.error,
+                    onChange = viewModel::onInputChange,
+                    onSend = viewModel::sendCompare,
+                    onReset = viewModel::resetCompare,
+                )
+            }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ModeSelector(
+    mode: com.rivi.carbonwise.ui.InputMode,
+    onModeChange: (com.rivi.carbonwise.ui.InputMode) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.material3.FilterChip(
+            selected = mode == com.rivi.carbonwise.ui.InputMode.LOG,
+            onClick = { onModeChange(com.rivi.carbonwise.ui.InputMode.LOG) },
+            label = { Text("Log my day") },
+        )
+        androidx.compose.material3.FilterChip(
+            selected = mode == com.rivi.carbonwise.ui.InputMode.COMPARE,
+            onClick = { onModeChange(com.rivi.carbonwise.ui.InputMode.COMPARE) },
+            label = { Text("Compare") },
+        )
     }
 }
 
@@ -199,6 +265,145 @@ private fun ParserBadge(usingAi: Boolean) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
+        }
+    }
+}
+
+@Composable
+private fun CompareArea(
+    input: String,
+    messages: List<CompareMessage>,
+    isComparing: Boolean,
+    error: String?,
+    onChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SectionLabel("Ask & compare")
+            if (messages.isNotEmpty()) {
+                TextButton(onClick = onReset) { Text("New chat") }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
+        // Conversation thread
+        messages.forEach { message ->
+            CompareBubble(message)
+            Spacer(Modifier.height(12.dp))
+        }
+        if (isComparing) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(18.dp).width(18.dp),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Thinking…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        OutlinedTextField(
+            value = input,
+            onValueChange = onChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    if (messages.isEmpty()) "e.g. Hyundai i10 vs Swift Dzire" else "Ask a follow-up, e.g. why?",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            shape = RoundedCornerShape(20.dp),
+            enabled = !isComparing,
+            keyboardActions = KeyboardActions(onDone = { onSend() }),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+            ),
+        )
+
+        AnimatedVisibility(visible = error != null) {
+            Text(
+                text = error.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onSend,
+            enabled = input.isNotBlank() && !isComparing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        ) {
+            Text(if (messages.isEmpty()) "Ask" else "Send", style = MaterialTheme.typography.labelLarge)
+        }
+
+        if (messages.isEmpty()) {
+            Spacer(Modifier.height(28.dp))
+            SectionLabel("Try one")
+            Spacer(Modifier.height(10.dp))
+            compareExamples.forEach { example ->
+                ExampleChip(text = example, enabled = !isComparing, onClick = { onChange(example) })
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompareBubble(message: CompareMessage) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = if (message.fromUser) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                tonalElevation = if (message.fromUser) 0.dp else 1.dp,
+                modifier = Modifier.fillMaxWidth(0.88f),
+            ) {
+                Text(
+                    text = message.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (message.fromUser) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.padding(14.dp),
+                )
+            }
+        }
+        // A comparison turn also shows the ranked card.
+        message.result?.let {
+            Spacer(Modifier.height(10.dp))
+            ComparisonCard(result = it)
         }
     }
 }

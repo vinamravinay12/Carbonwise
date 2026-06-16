@@ -41,7 +41,14 @@ import com.rivi.carbonwise.ui.components.SectionLabel
 
 /** Toggle for auto-tracking via Activity Recognition. */
 @Composable
-fun AutoTrackingCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+fun AutoTrackingCard(
+    enabled: Boolean,
+    needsLocationPermission: Boolean,
+    needsBatteryExemption: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onGrantLocation: () -> Unit,
+    onFixBattery: () -> Unit,
+) {
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -77,6 +84,34 @@ fun AutoTrackingCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
             Spacer(Modifier.width(8.dp))
             Switch(checked = enabled, onCheckedChange = onToggle)
         }
+        if (enabled && needsLocationPermission) {
+            ReliabilityNudge(
+                text = "Location is off, so trip distances are estimated. Grant it for accuracy.",
+                actionLabel = "Grant",
+                onAction = onGrantLocation,
+            )
+        }
+        if (enabled && needsBatteryExemption) {
+            ReliabilityNudge(
+                text = "For reliable detection, allow CarbonWise to run without battery limits.",
+                actionLabel = "Allow",
+                onAction = onFixBattery,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReliabilityNudge(text: String, actionLabel: String, onAction: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        TextButton(onClick = onAction) { Text(actionLabel) }
     }
 }
 

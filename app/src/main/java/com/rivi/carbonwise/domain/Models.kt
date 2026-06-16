@@ -80,6 +80,16 @@ data class Footprint(
 )
 
 /**
+ * A side-by-side comparison answering "which produces more carbon?". [items] are the
+ * computed options sorted heaviest-first, so the first is the worst and the last the best.
+ * Quantities are normalised to a fair common basis by the engine before computing.
+ */
+data class Comparison(val items: List<ComputedActivity>) {
+    val heaviest: ComputedActivity? get() = items.firstOrNull()
+    val lightest: ComputedActivity? get() = items.lastOrNull()
+}
+
+/**
  * The single most impactful, achievable change for this entry. The alternative may be
  * chosen by the AI (smarter, context-aware), but every figure here is real math from the
  * engine: today's saving, the same saving projected over a year, and the trees it equates

@@ -1,6 +1,7 @@
 package com.rivi.carbonwise.data
 
 import android.util.Log
+import com.rivi.carbonwise.advisor.GeminiComparator
 import com.rivi.carbonwise.advisor.SwapAdvisor
 import com.rivi.carbonwise.domain.CarbonEngine
 import com.rivi.carbonwise.domain.EmissionFactors
@@ -35,6 +36,7 @@ class CarbonRepository(
     private val engine: CarbonEngine = CarbonEngine(),
     private val swapAdvisor: SwapAdvisor? = null,
     private val vehicleClassifier: VehicleModeClassifier = HeuristicVehicleClassifier,
+    private val comparator: GeminiComparator? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -51,6 +53,47 @@ class CarbonRepository(
         val parsed = parser.parse(sentence)
         return logActivities(sentence, parsed.activities, parsed.unrecognized)
     }
+
+    /**
+     * One turn of the Compare conversation. With Gemini it's a stateful chat (follow-ups like
+     * "why?" keep context) returning AI estimates; without a key it falls back to a one-shot
+     * deterministic comparison over known categories. Nothing is saved — it's exploratory.
+     */
+    suspend fun askComparison(message: String): CompareReply {
+        comparator?.let { ai ->
+            try {
+                return ai.send(message)
+            } catch (e: Exception) {
+                Log.w("CarbonWise", "AI comparator failed, using engine: ${e.message}")
+            }
+        }
+        // Deterministic fallback over known categories (no conversation memory).
+        val parsed = parser.parse(message)
+        val comparison = engine.compare(parsed.activities)
+        if (comparison.items.size < 2) {
+            return CompareReply(
+                reply = "Add a Gemini API key to ask freely. Offline, I can compare known " +
+                    "categories — e.g. \"petrol car vs metro for 20 km\".",
+                result = null,
+            )
+        }
+        val result = CompareResult(
+            verdict = InsightPhraser.comparisonHeadline(comparison),
+            options = comparison.items.map {
+                CompareOption(
+                    label = it.factor.displayName,
+                    kgCo2 = it.kgCo2,
+                    detail = "${formatNumber(it.quantity)} ${it.factor.unit.symbol} × " +
+                        "${formatNumber(it.factor.kgCo2PerUnit)} kg/${it.factor.unit.symbol}",
+                )
+            },
+            aiEstimated = false,
+        )
+        return CompareReply(reply = result.verdict, result = result)
+    }
+
+    /** Start a fresh Compare conversation. */
+    fun resetComparison() = comparator?.reset()
 
     // ---- Auto-tracking: Activity Recognition ----
 

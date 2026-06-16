@@ -59,7 +59,12 @@ class RuleBasedParser : ActivityParser {
         val unrecognized = mutableListOf<String>()
 
         val clauses = sentence
-            .split(Regex("[,;.&]| and | then | also | plus | as well as ", RegexOption.IGNORE_CASE))
+            .split(
+                Regex(
+                    "[,;.&]| and | then | also | plus | as well as | vs | versus | or ",
+                    RegexOption.IGNORE_CASE,
+                ),
+            )
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 

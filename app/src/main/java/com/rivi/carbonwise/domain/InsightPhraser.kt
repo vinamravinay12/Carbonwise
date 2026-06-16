@@ -34,6 +34,29 @@ object InsightPhraser {
             "${fmt(swap.savingKg)} kg CO₂ — your single biggest win today."
     }
 
+    /** Plain-language verdict for a comparison: which option is worse and by how much. */
+    fun comparisonHeadline(comparison: Comparison): String {
+        val items = comparison.items
+        val top = items.firstOrNull() ?: return "Tell me two things to compare."
+        if (items.size < 2) {
+            return "I only recognised ${top.factor.displayName.lowercase()} — name something to compare it with."
+        }
+        val bottom = items.last()
+        val basis = "${fmt(top.quantity)} ${top.factor.unit.symbol}"
+        if (bottom.kgCo2 <= 0.0) {
+            return "${top.factor.displayName} emits ${fmt(top.kgCo2)} kg CO₂ over $basis, " +
+                "while ${bottom.factor.displayName.lowercase()} emits none — an easy win."
+        }
+        val ratio = top.kgCo2 / bottom.kgCo2
+        val moreText = if (ratio >= 1.95) {
+            "${fmt(ratio)}× more"
+        } else {
+            "${fmt((ratio - 1) * 100)}% more"
+        }
+        return "${top.factor.displayName} emits $moreText CO₂ than " +
+            "${bottom.factor.displayName.lowercase()} for the same $basis."
+    }
+
     /** Celebrates zero-carbon active travel by naming what driving would have cost. */
     fun avoidedNote(avoidedKg: Double): String =
         "By going active instead of driving, you kept about ${fmt(avoidedKg)} kg CO₂ " +

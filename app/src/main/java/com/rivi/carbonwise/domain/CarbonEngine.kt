@@ -14,6 +14,32 @@ class CarbonEngine(
     private val drivingBaselineKgPerKm: Double = EmissionFactors.drivingBaselineKgPerKm,
 ) {
 
+    /**
+     * Rank options for "which emits more carbon?". When the options share a unit (e.g. two
+     * meals, or two ways to travel), they're normalised to a fair common basis — the largest
+     * stated quantity — so the comparison is apples-to-apples. Mixed units are left as stated.
+     */
+    fun compare(parsed: List<ParsedActivity>): Comparison {
+        val items = fairBasis(parsed).mapNotNull { a ->
+            val factor = factors(a.type) ?: return@mapNotNull null
+            ComputedActivity(
+                factor = factor,
+                quantity = a.quantity,
+                kgCo2 = round(a.quantity * factor.kgCo2PerUnit),
+                rawText = a.rawText,
+            )
+        }.sortedByDescending { it.kgCo2 }
+        return Comparison(items)
+    }
+
+    private fun fairBasis(parsed: List<ParsedActivity>): List<ParsedActivity> {
+        if (parsed.size < 2) return parsed
+        val units = parsed.mapNotNull { factors(it.type)?.unit }.toSet()
+        if (units.size != 1) return parsed // mixed units → compare exactly as stated
+        val basis = parsed.maxOf { it.quantity }
+        return parsed.map { it.copy(quantity = basis) }
+    }
+
     /** Apply factors to parsed activities. Unknown types are silently skipped. */
     fun compute(parsed: List<ParsedActivity>): Footprint {
         val computed = parsed.mapNotNull { a ->

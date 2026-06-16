@@ -33,6 +33,9 @@ class ActivityRecognitionManager(private val context: Context) {
 
     fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, false)
 
+    /** Whether location (for GPS trip distance) is granted. Optional — tracking works without it. */
+    fun hasLocationPermission(): Boolean = TripLocationService.hasLocationPermission(context)
+
     /** Begin receiving transition updates. No-op (returns false) without permission. */
     fun start(): Boolean {
         if (!hasPermission()) return false
@@ -43,6 +46,8 @@ class ActivityRecognitionManager(private val context: Context) {
                 .addOnSuccessListener { setEnabled(true) }
                 .addOnFailureListener { e -> Log.w(TAG, "Failed to start tracking: ${e.message}") }
             setEnabled(true)
+            // Keep the app alive so transitions are reliably delivered when backgrounded.
+            TrackingService.start(context)
             true
         } catch (e: SecurityException) {
             Log.w(TAG, "Missing permission for tracking: ${e.message}")
@@ -52,12 +57,20 @@ class ActivityRecognitionManager(private val context: Context) {
 
     fun stop() {
         setEnabled(false)
+        TrackingService.stop(context)
         try {
             ActivityRecognition.getClient(context)
                 .removeActivityTransitionUpdates(pendingIntent())
         } catch (e: SecurityException) {
             Log.w(TAG, "Failed to stop tracking: ${e.message}")
         }
+    }
+
+    /** Whether the app is currently exempt from battery optimization (more reliable when true). */
+    fun isIgnoringBatteryOptimizations(): Boolean {
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE)
+            as android.os.PowerManager
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     private fun setEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()

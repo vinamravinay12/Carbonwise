@@ -113,6 +113,39 @@ class CarbonEngineTest {
     }
 
     @Test
+    fun `compare ranks options heaviest-first on a per-serving basis`() {
+        val comparison = engine.compare(
+            listOf(ParsedActivity("meal_chicken", 1.0), ParsedActivity("meal_beef", 1.0)),
+        )
+        assertEquals("meal_beef", comparison.heaviest!!.factor.type)
+        assertEquals("meal_chicken", comparison.lightest!!.factor.type)
+        assertEquals(6.0, comparison.heaviest!!.kgCo2, 0.0001)
+    }
+
+    @Test
+    fun `compare normalises same-unit options to a fair common distance`() {
+        // "drive 10 km vs metro 20 km" → both compared at the larger stated distance (20 km)
+        val comparison = engine.compare(
+            listOf(ParsedActivity("car_petrol", 10.0), ParsedActivity("metro", 20.0)),
+        )
+        assertEquals("car_petrol", comparison.heaviest!!.factor.type)
+        assertEquals(20.0, comparison.heaviest!!.quantity, 0.0001)   // car re-based to 20 km
+        assertEquals(20.0, comparison.lightest!!.quantity, 0.0001)   // metro stays 20 km
+        assertEquals(3.84, comparison.heaviest!!.kgCo2, 0.0001)      // 20 × 0.192
+    }
+
+    @Test
+    fun `compare leaves mixed-unit options exactly as stated`() {
+        val comparison = engine.compare(
+            listOf(ParsedActivity("car_petrol", 10.0), ParsedActivity("ac", 5.0)),
+        )
+        // 10 km car = 1.92 ; 5 h AC = 5.25 → AC is heavier, quantities untouched
+        assertEquals("ac", comparison.heaviest!!.factor.type)
+        assertEquals(5.0, comparison.heaviest!!.quantity, 0.0001)
+        assertEquals(10.0, comparison.lightest!!.quantity, 0.0001)
+    }
+
+    @Test
     fun `no swap offered for an already-green day`() {
         val footprint = engine.compute(
             listOf(
