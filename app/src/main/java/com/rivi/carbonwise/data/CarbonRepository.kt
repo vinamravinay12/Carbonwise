@@ -10,6 +10,9 @@ import com.rivi.carbonwise.domain.ParsedActivity
 import com.rivi.carbonwise.domain.Swap
 import com.rivi.carbonwise.parser.ActivityParser
 import com.rivi.carbonwise.recognition.DetectedKind
+import com.rivi.carbonwise.recognition.HeuristicVehicleClassifier
+import com.rivi.carbonwise.recognition.TripFeatures
+import com.rivi.carbonwise.recognition.VehicleModeClassifier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -31,6 +34,7 @@ class CarbonRepository(
     private val detectedDao: DetectedSegmentDao,
     private val engine: CarbonEngine = CarbonEngine(),
     private val swapAdvisor: SwapAdvisor? = null,
+    private val vehicleClassifier: VehicleModeClassifier = HeuristicVehicleClassifier,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -55,10 +59,10 @@ class CarbonRepository(
 
     suspend fun getDetection(id: Long): DetectedTrip? = detectedDao.getById(id)?.toTrip()
 
-    /** A movement of [kind] began at [startMillis]; open a segment, tidying stale ones. */
-    suspend fun recordActivityEnter(kind: DetectedKind, startMillis: Long) {
+    /** A movement of [kind] began; open a segment (tidying stale ones) and return its id. */
+    suspend fun recordActivityEnter(kind: DetectedKind, startMillis: Long): Long {
         detectedDao.pruneStaleOpen(System.currentTimeMillis() - STALE_OPEN_MS)
-        detectedDao.insert(
+        return detectedDao.insert(
             DetectedSegmentEntity(
                 kind = kind.name,
                 startMillis = startMillis,
@@ -68,12 +72,55 @@ class CarbonRepository(
         )
     }
 
-    /** A movement of [kind] ended; close the matching open segment into a PENDING trip. */
+    /** Called by the location service as a trip progresses. */
+    suspend fun updateTripMetrics(
+        segmentId: Long,
+        distanceMeters: Double,
+        avgSpeedKmh: Double,
+        maxSpeedKmh: Double,
+        stopCount: Int,
+        gpsGaps: Int,
+    ) = detectedDao.updateMetrics(segmentId, distanceMeters, avgSpeedKmh, maxSpeedKmh, stopCount, gpsGaps)
+
+    /**
+     * A movement of [kind] ended; close the matching open segment into a PENDING trip and,
+     * for a vehicle with GPS metrics, classify the most likely mode to pre-select.
+     */
     suspend fun recordActivityExit(kind: DetectedKind, endMillis: Long): DetectedTrip? {
         val open = detectedDao.latestOpen(kind.name) ?: return null
         if (endMillis <= open.startMillis) return null
         detectedDao.close(open.id, endMillis, SegmentStatus.PENDING)
-        return DetectedTrip(open.id, kind, open.startMillis, endMillis)
+
+        val closed = detectedDao.getById(open.id) ?: return null
+        val suggested = suggestMode(kind, closed, endMillis)
+        if (suggested != null) detectedDao.setSuggestedType(open.id, suggested)
+
+        return DetectedTrip(
+            id = open.id,
+            kind = kind,
+            startMillis = open.startMillis,
+            endMillis = endMillis,
+            distanceKm = closed.distanceMeters?.let { it / 1000.0 },
+            suggestedType = suggested,
+        )
+    }
+
+    private suspend fun suggestMode(
+        kind: DetectedKind,
+        segment: DetectedSegmentEntity,
+        endMillis: Long,
+    ): String? {
+        if (kind != DetectedKind.VEHICLE) return kind.defaultType
+        val distanceMeters = segment.distanceMeters ?: return kind.defaultType
+        val features = TripFeatures(
+            distanceKm = distanceMeters / 1000.0,
+            durationMinutes = ((endMillis - segment.startMillis) / 60_000L).coerceAtLeast(1),
+            avgSpeedKmh = segment.avgSpeedKmh ?: 0.0,
+            maxSpeedKmh = segment.maxSpeedKmh ?: 0.0,
+            stopCount = segment.stopCount ?: 0,
+            gpsGaps = segment.gpsGaps ?: 0,
+        )
+        return vehicleClassifier.classify(features)
     }
 
     /** Turn a detected trip into a real entry once the user confirms mode + amount. */
@@ -136,9 +183,16 @@ class CarbonRepository(
     }
 
     private fun DetectedSegmentEntity.toTrip(): DetectedTrip? {
-        val kind = DetectedKind.valueOfOrNull(kind) ?: return null
+        val detectedKind = DetectedKind.valueOfOrNull(kind) ?: return null
         val end = endMillis ?: return null
-        return DetectedTrip(id = id, kind = kind, startMillis = startMillis, endMillis = end)
+        return DetectedTrip(
+            id = id,
+            kind = detectedKind,
+            startMillis = startMillis,
+            endMillis = end,
+            distanceKm = distanceMeters?.let { it / 1000.0 },
+            suggestedType = suggestedType ?: detectedKind.defaultType,
+        )
     }
 
     private fun formatNumber(value: Double): String =

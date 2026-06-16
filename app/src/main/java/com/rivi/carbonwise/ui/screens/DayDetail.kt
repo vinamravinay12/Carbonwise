@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.rivi.carbonwise.data.LoggedDay
 import com.rivi.carbonwise.domain.InsightPhraser
 import com.rivi.carbonwise.ui.components.ActivityRow
+import com.rivi.carbonwise.ui.components.AvoidedCard
 import com.rivi.carbonwise.ui.components.BenchmarkGauge
 import com.rivi.carbonwise.ui.components.CategoryBreakdown
 import com.rivi.carbonwise.ui.components.FootprintRing
@@ -56,6 +57,11 @@ fun DayDetailContent(day: LoggedDay, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
             BenchmarkGauge(totalKg = footprint.totalKg)
+        }
+
+        // ---- Emissions avoided by active travel ----
+        if (footprint.avoidedKg > 0) {
+            AvoidedCard(avoidedKg = footprint.avoidedKg)
         }
 
         // ---- The single best swap ----

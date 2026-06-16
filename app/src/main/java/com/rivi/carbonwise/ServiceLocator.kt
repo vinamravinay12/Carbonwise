@@ -10,6 +10,9 @@ import com.rivi.carbonwise.parser.FallbackParser
 import com.rivi.carbonwise.parser.GeminiParser
 import com.rivi.carbonwise.parser.RuleBasedParser
 import com.rivi.carbonwise.recognition.ActivityRecognitionManager
+import com.rivi.carbonwise.recognition.GeminiVehicleClassifier
+import com.rivi.carbonwise.recognition.HeuristicVehicleClassifier
+import com.rivi.carbonwise.recognition.VehicleModeClassifier
 
 /**
  * Tiny manual DI container. Builds the parser stack — Gemini in front of the rule-based
@@ -50,8 +53,17 @@ object ServiceLocator {
             parser = buildParser(key),
             detectedDao = db.detectedSegmentDao(),
             swapAdvisor = buildSwapAdvisor(key),
+            vehicleClassifier = buildVehicleClassifier(key),
         )
     }
+
+    /** Hybrid (Gemini refining the heuristic) when a key is present; heuristic otherwise. */
+    private fun buildVehicleClassifier(key: String): VehicleModeClassifier =
+        if (key.isNotBlank()) {
+            GeminiVehicleClassifier(apiKey = key, fallback = HeuristicVehicleClassifier)
+        } else {
+            HeuristicVehicleClassifier
+        }
 
     private fun buildParser(key: String): ActivityParser {
         val rules = RuleBasedParser()

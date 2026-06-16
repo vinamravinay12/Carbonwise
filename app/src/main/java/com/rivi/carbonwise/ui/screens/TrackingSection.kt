@@ -121,8 +121,17 @@ fun ConfirmDetectionDialog(
     onConfirm: (factorType: String, distanceKm: Double) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var selectedType by remember { mutableStateOf(trip.kind.defaultType) }
-    var distanceText by remember { mutableStateOf("") }
+    var selectedType by remember(trip.id) {
+        mutableStateOf(trip.suggestedType ?: trip.kind.defaultType)
+    }
+    // Prefer GPS-measured distance; fall back to a duration estimate the user can edit.
+    val prefillKm = remember(trip.id) {
+        trip.distanceKm?.takeIf { it > 0 } ?: trip.kind.estimatedDistanceKm(trip.durationMinutes)
+    }
+    val measured = trip.distanceKm?.takeIf { it > 0 } != null
+    var distanceText by remember(trip.id) {
+        mutableStateOf(prefillKm?.let { if (it > 0) "%.1f".format(it) else "" } ?: "")
+    }
     val distance = distanceText.toDoubleOrNull()
     val canConfirm = distance != null && distance > 0
 
@@ -151,6 +160,17 @@ fun ConfirmDetectionDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (prefillKm != null) {
+                    Text(
+                        text = if (measured) {
+                            "GPS-measured — adjust if it's off."
+                        } else {
+                            "Estimated from ${trip.durationMinutes} min — adjust if it's off."
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = {

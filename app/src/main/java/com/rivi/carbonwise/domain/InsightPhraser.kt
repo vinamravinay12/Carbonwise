@@ -34,6 +34,11 @@ object InsightPhraser {
             "${fmt(swap.savingKg)} kg CO₂ — your single biggest win today."
     }
 
+    /** Celebrates zero-carbon active travel by naming what driving would have cost. */
+    fun avoidedNote(avoidedKg: Double): String =
+        "By going active instead of driving, you kept about ${fmt(avoidedKg)} kg CO₂ " +
+            "out of the air today. Every active trip counts."
+
     fun benchmarkNote(totalKg: Double): String = when (Benchmarks.band(totalKg)) {
         Benchmarks.Band.LOW -> "Below the ${fmt(Benchmarks.TARGET_DAILY_KG)} kg climate target. Keep it up."
         Benchmarks.Band.AVERAGE -> "Around the typical ${fmt(Benchmarks.AVERAGE_DAILY_KG)} kg daily average."

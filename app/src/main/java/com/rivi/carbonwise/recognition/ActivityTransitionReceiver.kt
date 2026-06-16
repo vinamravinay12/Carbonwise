@@ -34,10 +34,14 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                     val kind = DetectedKind.fromDetectedActivity(event.activityType) ?: continue
                     val whenMillis = toWallClockMillis(event.elapsedRealTimeNanos)
                     when (event.transitionType) {
-                        ActivityTransition.ACTIVITY_TRANSITION_ENTER ->
-                            repository.recordActivityEnter(kind, whenMillis)
+                        ActivityTransition.ACTIVITY_TRANSITION_ENTER -> {
+                            val segmentId = repository.recordActivityEnter(kind, whenMillis)
+                            // Measure distance/speed via GPS for the duration of the trip.
+                            TripLocationService.start(appContext, segmentId)
+                        }
 
                         ActivityTransition.ACTIVITY_TRANSITION_EXIT -> {
+                            TripLocationService.stop(appContext)
                             val trip = repository.recordActivityExit(kind, whenMillis)
                             if (trip != null) DetectionNotifier.notifyTrip(appContext, trip)
                         }

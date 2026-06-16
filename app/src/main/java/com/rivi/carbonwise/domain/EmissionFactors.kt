@@ -15,7 +15,10 @@ object EmissionFactors {
         EmissionFactor("motorbike", Category.TRANSPORT, "Motorbike", Unit.KM, 0.103),
         EmissionFactor("auto_rickshaw", Category.TRANSPORT, "Auto-rickshaw", Unit.KM, 0.107),
         EmissionFactor("bus", Category.TRANSPORT, "Bus", Unit.KM, 0.041),
-        EmissionFactor("metro", Category.TRANSPORT, "Metro / train", Unit.KM, 0.028),
+        EmissionFactor("metro", Category.TRANSPORT, "Metro", Unit.KM, 0.028),
+        EmissionFactor("train", Category.TRANSPORT, "Train", Unit.KM, 0.035),
+        EmissionFactor("tram", Category.TRANSPORT, "Tram", Unit.KM, 0.029),
+        EmissionFactor("ferry", Category.TRANSPORT, "Ferry", Unit.KM, 0.19),
         EmissionFactor("flight", Category.TRANSPORT, "Flight", Unit.KM, 0.246),
         EmissionFactor("bicycle", Category.TRANSPORT, "Bicycle", Unit.KM, 0.0),
         EmissionFactor("walk", Category.TRANSPORT, "Walking", Unit.KM, 0.0),
@@ -48,6 +51,12 @@ object EmissionFactors {
     private val byType: Map<String, EmissionFactor> = table.associateBy { it.type }
 
     fun byType(type: String): EmissionFactor? = byType[type]
+
+    /**
+     * The baseline a zero-carbon trip is credited against — i.e. "what you'd have emitted
+     * had you driven this distance instead." Uses the petrol-car factor (kg CO₂ per km).
+     */
+    val drivingBaselineKgPerKm: Double = byType["car_petrol"]?.kgCo2PerUnit ?: 0.192
 
     /**
      * Lower-impact alternatives for the "single best swap". Each maps an activity type

@@ -10,6 +10,13 @@
     <!-- Notifying the user about a freshly detected trip (runtime on API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- GPS trip distance: foreground while tracking; background to catch auto-detected trips. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -34,6 +41,17 @@
         <receiver
             android:name=".recognition.ActivityTransitionReceiver"
             android:exported="false" />
+
+        <!-- Handles notification quick-actions (one-tap log). -->
+        <receiver
+            android:name=".recognition.NotificationActionReceiver"
+            android:exported="false" />
+
+        <!-- Foreground service that measures trip distance via GPS. -->
+        <service
+            android:name=".recognition.TripLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 
 </manifest>

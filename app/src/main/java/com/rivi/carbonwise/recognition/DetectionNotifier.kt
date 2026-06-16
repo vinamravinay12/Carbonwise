@@ -12,7 +12,12 @@ import com.rivi.carbonwise.MainActivity
 import com.rivi.carbonwise.R
 import com.rivi.carbonwise.data.DetectedTrip
 
-/** Posts a gentle "we noticed a trip — tap to log it" notification when a segment ends. */
+/**
+ * Posts the "we noticed a trip" prompt. For a vehicle it asks the car-prior question
+ * ("Were you just in a car? Yes / Something else"); for active travel it offers a single
+ * "Log it". Quick-actions log in one tap when GPS distance is known (see
+ * [NotificationActionReceiver]); otherwise tapping opens the app to enter distance.
+ */
 object DetectionNotifier {
 
     private const val CHANNEL_ID = "detected_trips"
@@ -20,33 +25,66 @@ object DetectionNotifier {
 
     fun notifyTrip(context: Context, trip: DetectedTrip) {
         ensureChannel(context)
+        val notifId = trip.id.toInt()
+        val openIntent = openAppIntent(context, trip.id, notifId)
 
-        val tapIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(MainActivity.EXTRA_OPEN_DETECTION, trip.id)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentText(detail(trip))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openIntent)
+
+        if (trip.kind == DetectedKind.VEHICLE) {
+            builder.setContentTitle("Were you just in a car?")
+            builder.addAction(
+                0, "Yes, car",
+                actionIntent(context, NotificationActionReceiver.ACTION_CONFIRM_CAR, trip.id, notifId),
+            )
+            builder.addAction(0, "Something else", openIntent)
+        } else {
+            builder.setContentTitle("Looks like you were ${trip.kind.label.lowercase()}")
+            builder.addAction(
+                0, "Log it",
+                actionIntent(context, NotificationActionReceiver.ACTION_CONFIRM_ACTIVE, trip.id, notifId),
+            )
         }
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+
+        try {
+            NotificationManagerCompat.from(context).notify(notifId, builder.build())
+        } catch (_: SecurityException) {
+            // POST_NOTIFICATIONS not granted (API 33+): the detection still shows in-app.
+        }
+    }
+
+    private fun detail(trip: DetectedTrip): String {
+        val dist = trip.distanceKm?.takeIf { it > 0 }?.let { " · ~${"%.1f".format(it)} km" } ?: ""
+        return "About ${trip.durationMinutes} min$dist. Tap to log it and see the impact."
+    }
+
+    private fun openAppIntent(context: Context, tripId: Long, notifId: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_OPEN_DETECTION, tripId)
+        }
+        return PendingIntent.getActivity(context, notifId, intent, immutableFlags())
+    }
+
+    private fun actionIntent(context: Context, action: String, tripId: Long, notifId: Int): PendingIntent {
+        val intent = Intent(context, NotificationActionReceiver::class.java).apply {
+            this.action = action
+            putExtra(NotificationActionReceiver.EXTRA_TRIP_ID, tripId)
+            putExtra(NotificationActionReceiver.EXTRA_NOTIF_ID, notifId)
+        }
+        return PendingIntent.getBroadcast(context, action.hashCode() + notifId, intent, immutableFlags())
+    }
+
+    private fun immutableFlags(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
-        val pending = PendingIntent.getActivity(context, trip.id.toInt(), tapIntent, flags)
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Looks like you were ${trip.kind.label.lowercase()}")
-            .setContentText("About ${trip.durationMinutes} min. Tap to log it and see the impact.")
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pending)
-            .build()
-
-        try {
-            NotificationManagerCompat.from(context).notify(trip.id.toInt(), notification)
-        } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS not granted (API 33+): the detection is still in the app.
-        }
-    }
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

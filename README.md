@@ -57,11 +57,21 @@ sentence ─▶ ActivityParser ─▶ CarbonEngine ─▶ InsightPhraser ─▶ 
   unit-tested.
 - **Auto-tracking** (`recognition/`) uses the Google Play Services **Activity Recognition
   Transition API** to detect when the user starts/stops being `IN_VEHICLE`, `ON_BICYCLE`,
-  `WALKING`, or `RUNNING`. Each finished segment becomes a *pending detection* (with a
-  notification). The API gives the *kind* and *duration* but never the mode or distance, so
-  the user confirms those in one tap — keeping the trust principle intact (nothing guessed).
-  Falls back gracefully: no permission → the toggle is simply off; manual logging is
-  unaffected. GPS-measured distance is the planned step 2.
+  `WALKING`, or `RUNNING`. On a detected trip, a **foreground GPS service**
+  (`TripLocationService`) measures distance + a movement signature (avg/max speed, stops,
+  GPS dropouts). When the trip ends:
+  - For a **vehicle**, the signature is classified (`VehicleModeClassifier` — a transparent
+    heuristic with a *car prior*, optionally refined by Gemini) to pre-select the likely
+    mode, and a notification asks **"Were you just in a car? — Yes / Something else."**
+    "Yes" logs car + GPS distance in one tap; "Something else" opens the picker
+    (bus/metro/train/tram/ferry/auto/two-wheeler).
+  - For **active travel**, it logs the distance and credits the emissions avoided.
+
+  The API gives *kind*; GPS gives *distance*; the user confirms the *mode* — so no carbon
+  number is ever guessed. It degrades gracefully: no GPS/permission → distance falls back to
+  a duration estimate or manual entry, and manual sentence-logging is always available.
+  (Note: automatic background GPS is constrained by Android's foreground-service rules and
+  needs on-device validation.)
 - **Storage** is Room, local only. No accounts, no cloud, no sync.
 
 ## Running it

@@ -24,6 +24,24 @@ interface DetectedSegmentDao {
     @Query("UPDATE detected_segments SET status = :status WHERE id = :id")
     suspend fun setStatus(id: Long, status: String)
 
+    /** Called repeatedly by the location service as a trip progresses. */
+    @Query(
+        "UPDATE detected_segments SET distanceMeters = :distanceMeters, " +
+            "avgSpeedKmh = :avgSpeedKmh, maxSpeedKmh = :maxSpeedKmh, " +
+            "stopCount = :stopCount, gpsGaps = :gpsGaps WHERE id = :id",
+    )
+    suspend fun updateMetrics(
+        id: Long,
+        distanceMeters: Double,
+        avgSpeedKmh: Double,
+        maxSpeedKmh: Double,
+        stopCount: Int,
+        gpsGaps: Int,
+    )
+
+    @Query("UPDATE detected_segments SET suggestedType = :type WHERE id = :id")
+    suspend fun setSuggestedType(id: Long, type: String)
+
     @Query("SELECT * FROM detected_segments WHERE id = :id")
     suspend fun getById(id: Long): DetectedSegmentEntity?
 

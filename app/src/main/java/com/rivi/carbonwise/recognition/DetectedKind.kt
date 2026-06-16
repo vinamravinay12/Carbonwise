@@ -11,13 +11,29 @@ enum class DetectedKind(
     val label: String,
     /** Candidate factor types the user confirms from; first is the default selection. */
     val candidateTypes: List<String>,
+    /** Typical speed (km/h) for estimating distance from duration; null when too variable. */
+    val typicalSpeedKmh: Double?,
 ) {
-    VEHICLE("In a vehicle", listOf("car_petrol", "bus", "metro", "auto_rickshaw", "motorbike")),
-    BICYCLE("Cycling", listOf("bicycle")),
-    WALK("Walking", listOf("walk")),
-    RUN("Running", listOf("walk"));
+    VEHICLE(
+        "In a vehicle",
+        listOf("car_petrol", "bus", "metro", "train", "tram", "auto_rickshaw", "motorbike", "ferry"),
+        null,
+    ),
+    BICYCLE("Cycling", listOf("bicycle"), 15.0),
+    WALK("Walking", listOf("walk"), 5.0),
+    RUN("Running", listOf("walk"), 9.0);
 
     val defaultType: String get() = candidateTypes.first()
+
+    /**
+     * A transparent distance estimate from a detected duration, using [typicalSpeedKmh].
+     * Vehicle speed is too variable to estimate, so it returns null (the user enters it).
+     */
+    fun estimatedDistanceKm(durationMinutes: Long): Double? {
+        val speed = typicalSpeedKmh ?: return null
+        val km = speed * (durationMinutes / 60.0)
+        return (km * 10).toLong() / 10.0 // one decimal
+    }
 
     companion object {
         /** Maps Google's DetectedActivity constant to our kind, or null if we ignore it. */

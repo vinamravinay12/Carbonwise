@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [EntryEntity::class, DetectedSegmentEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class CarbonDatabase : RoomDatabase() {
@@ -34,13 +34,25 @@ abstract class CarbonDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 → v3 adds GPS metric columns to detected_segments. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN distanceMeters REAL")
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN avgSpeedKmh REAL")
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN maxSpeedKmh REAL")
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN stopCount INTEGER")
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN gpsGaps INTEGER")
+                db.execSQL("ALTER TABLE detected_segments ADD COLUMN suggestedType TEXT")
+            }
+        }
+
         fun get(context: Context): CarbonDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     CarbonDatabase::class.java,
                     "carbonwise.db",
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }

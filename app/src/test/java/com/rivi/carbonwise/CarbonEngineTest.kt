@@ -58,6 +58,19 @@ class CarbonEngineTest {
     }
 
     @Test
+    fun `credits avoided emissions for zero-carbon active travel`() {
+        val footprint = engine.compute(listOf(ParsedActivity("bicycle", 10.0)))
+        assertEquals(0.0, footprint.totalKg, 0.0001)         // cycling emits nothing
+        assertEquals(1.92, footprint.avoidedKg, 0.0001)      // 10 km × 0.192 driving baseline
+    }
+
+    @Test
+    fun `driving earns no avoided credit`() {
+        val footprint = engine.compute(listOf(ParsedActivity("car_petrol", 10.0)))
+        assertEquals(0.0, footprint.avoidedKg, 0.0001)
+    }
+
+    @Test
     fun `best swap targets the largest emitter with an alternative`() {
         val footprint = engine.compute(
             listOf(

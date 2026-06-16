@@ -66,12 +66,17 @@ data class ComputedActivity(
     val rawText: String = "",
 )
 
-/** The full deterministic result for one logged day. */
+/**
+ * The full deterministic result for one logged day. [avoidedKg] is the CO₂ the user
+ * *avoided* by choosing zero-carbon active travel (walking/cycling) over driving the same
+ * distance — a positive, motivating number, computed by the engine just like the rest.
+ */
 @Serializable
 data class Footprint(
     val activities: List<ComputedActivity>,
     val totalKg: Double,
     val byCategory: Map<Category, Double>,
+    val avoidedKg: Double = 0.0,
 )
 
 /**

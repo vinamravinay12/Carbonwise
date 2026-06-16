@@ -81,6 +81,10 @@ fun HomeScreen(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     add(Manifest.permission.POST_NOTIFICATIONS)
                 }
+                // Location lets the GPS service measure trip distance; optional — tracking
+                // still works without it (distance falls back to estimate / manual entry).
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
             viewModel.consumePermissionRequest()
             if (perms.isNotEmpty()) permissionLauncher.launch(perms.toTypedArray())

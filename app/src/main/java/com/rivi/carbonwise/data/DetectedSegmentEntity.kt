@@ -17,6 +17,13 @@ data class DetectedSegmentEntity(
     val startMillis: Long,
     val endMillis: Long?,        // null while still OPEN
     val status: String,          // SegmentStatus name
+    // GPS-derived metrics, filled in by TripLocationService when location is available.
+    val distanceMeters: Double? = null,
+    val avgSpeedKmh: Double? = null,
+    val maxSpeedKmh: Double? = null,
+    val stopCount: Int? = null,  // near-zero-speed dwell intervals (bus-stop / traffic signal)
+    val gpsGaps: Int? = null,    // signal dropouts (tunnels → hints metro/train)
+    val suggestedType: String? = null, // classifier's best-guess factor type to pre-select
 )
 
 object SegmentStatus {

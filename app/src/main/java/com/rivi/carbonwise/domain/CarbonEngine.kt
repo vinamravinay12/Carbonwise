@@ -11,6 +11,7 @@ import kotlin.math.roundToInt
 class CarbonEngine(
     private val factors: (String) -> EmissionFactor? = EmissionFactors::byType,
     private val alternatives: Map<String, String> = EmissionFactors.swapAlternatives,
+    private val drivingBaselineKgPerKm: Double = EmissionFactors.drivingBaselineKgPerKm,
 ) {
 
     /** Apply factors to parsed activities. Unknown types are silently skipped. */
@@ -31,7 +32,28 @@ class CarbonEngine(
             .mapValues { (_, items) -> round(items.sumOf { it.kgCo2 }) }
 
         val total = round(computed.sumOf { it.kgCo2 })
-        return Footprint(activities = computed, totalKg = total, byCategory = byCategory)
+        return Footprint(
+            activities = computed,
+            totalKg = total,
+            byCategory = byCategory,
+            avoidedKg = avoidedByActiveTravel(computed),
+        )
+    }
+
+    /**
+     * CO₂ avoided by zero-carbon travel (walking/cycling): the distance, had it been driven,
+     * would have cost `distance × driving baseline`. Only credits transport activities that
+     * are measured in km and emit nothing themselves.
+     */
+    private fun avoidedByActiveTravel(activities: List<ComputedActivity>): Double {
+        val avoided = activities
+            .filter {
+                it.factor.category == Category.TRANSPORT &&
+                    it.factor.unit == Unit.KM &&
+                    it.factor.kgCo2PerUnit == 0.0
+            }
+            .sumOf { it.quantity * drivingBaselineKgPerKm }
+        return round(avoided)
     }
 
     /**
