@@ -47,4 +47,38 @@ class RuleBasedParserTest {
         assertEquals("car_electric", result.activities.single().type)
         assertEquals(30.0, result.activities.single().quantity, 0.0)
     }
+
+    @Test
+    fun `recognises a desktop computer and monitors`() = runTest {
+        val result = parser.parse("worked on my mac mini for 4 hours")
+        val activity = result.activities.single()
+        assertEquals("desktop_computer", activity.type)
+        assertEquals(4.0, activity.quantity, 0.0)
+
+        assertEquals("monitor", parser.parse("used an external monitor").activities.single().type)
+    }
+
+    @Test
+    fun `parses multiple activities split by and`() = runTest {
+        val result = parser.parse("cycled 8 km and walked 2 km")
+        val byType = result.activities.associateBy { it.type }
+        assertEquals(8.0, byType["bicycle"]!!.quantity, 0.0)
+        assertEquals(2.0, byType["walk"]!!.quantity, 0.0)
+    }
+
+    @Test
+    fun `understands simple word quantities for servings`() = runTest {
+        val result = parser.parse("had two coffees")
+        val coffee = result.activities.single { it.type == "coffee" }
+        assertEquals(2.0, coffee.quantity, 0.0)
+    }
+
+    @Test
+    fun `splits comparison phrasing on vs`() = runTest {
+        val result = parser.parse("petrol car vs metro for 20 km")
+        assertEquals(
+            setOf("car_petrol", "metro"),
+            result.activities.map { it.type }.toSet(),
+        )
+    }
 }

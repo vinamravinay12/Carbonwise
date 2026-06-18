@@ -55,6 +55,10 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        // Let android.util.Log (used in graceful-fallback paths) no-op in JVM unit tests.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

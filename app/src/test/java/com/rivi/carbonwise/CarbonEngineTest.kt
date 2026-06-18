@@ -25,6 +25,15 @@ class CarbonEngineTest {
     }
 
     @Test
+    fun `empty input yields a zero footprint`() {
+        val footprint = engine.compute(emptyList())
+        assertTrue(footprint.activities.isEmpty())
+        assertEquals(0.0, footprint.totalKg, 0.0)
+        assertEquals(0.0, footprint.avoidedKg, 0.0)
+        assertEquals(0.0, footprint.netKg, 0.0)
+    }
+
+    @Test
     fun `same activity always yields the same number`() {
         val a = engine.compute(listOf(ParsedActivity("meal_chicken", 1.0))).totalKg
         val b = engine.compute(listOf(ParsedActivity("meal_chicken", 1.0))).totalKg
