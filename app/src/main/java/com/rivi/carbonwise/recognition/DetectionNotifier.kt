@@ -58,7 +58,8 @@ object DetectionNotifier {
     }
 
     private fun detail(trip: DetectedTrip): String {
-        val dist = trip.distanceKm?.takeIf { it > 0 }?.let { " · ~${"%.1f".format(it)} km" } ?: ""
+        val dist = trip.distanceKm?.takeIf { it > 0 }
+            ?.let { " · ~${com.rivi.carbonwise.domain.formatAmount(it)} km" } ?: ""
         return "About ${trip.durationMinutes} min$dist. Tap to log it and see the impact."
     }
 
@@ -87,12 +88,10 @@ object DetectionNotifier {
         }
 
     private fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply { description = "Prompts to confirm an automatically detected trip" }
-            context.getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply { description = "Prompts to confirm an automatically detected trip" }
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
     }
 }

@@ -58,8 +58,7 @@ class GeminiImpactNarrator(
         """.trimIndent()
     }
 
-    private fun fmt(value: Double): String =
-        if (value == value.toLong().toDouble()) value.toLong().toString() else String.format("%.1f", value)
+    private fun fmt(value: Double): String = com.rivi.carbonwise.domain.formatAmount(value)
 
     private companion object {
         const val SYSTEM_INSTRUCTION = """

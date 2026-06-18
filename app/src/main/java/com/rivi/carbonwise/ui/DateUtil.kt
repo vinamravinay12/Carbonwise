@@ -6,11 +6,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
-private val dateFormatter = DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())
-
 /** "Today · 9:30 PM" / "Yesterday · 8:00 AM" / "Mon, 14 Jun · 7:15 PM". */
 fun formatTimestamp(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): String {
+    // Built per call against the current locale (it can change while the app runs).
+    val locale = Locale.getDefault()
+    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", locale)
+    val dateFormatter = DateTimeFormatter.ofPattern("EEE, d MMM", locale)
+
     val dateTime = Instant.ofEpochMilli(epochMillis).atZone(zoneId)
     val date = dateTime.toLocalDate()
     val today = LocalDate.now(zoneId)

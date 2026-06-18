@@ -18,6 +18,10 @@ data class TrendDay(
     val totalKg: Double,
 )
 
+/**
+ * Backs the History and Trends tabs (and the entry-detail screen). Exposes the logged days
+ * and a 7-day net-footprint trend as cold-started [StateFlow]s derived from the repository.
+ */
 class HistoryViewModel(private val repository: CarbonRepository) : ViewModel() {
 
     val history: StateFlow<List<LoggedDay>> =

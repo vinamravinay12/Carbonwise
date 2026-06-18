@@ -13,3 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Build / release artifacts (incl. baseline-profile .dm files)
+/app/release
+*.dm
+
+# Signing keystores — never commit
+*.jks
+*.keystore

@@ -87,6 +87,8 @@ private val compareExamples = listOf(
     "How can I cut my daily commute emissions?",
 )
 
+// ACTIVITY_RECOGNITION is API 29+, but it's only ever requested under an SDK_INT >= Q guard.
+@android.annotation.SuppressLint("InlinedApi")
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,

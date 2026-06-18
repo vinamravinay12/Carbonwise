@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -139,12 +138,10 @@ class TripLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun buildNotification(): android.app.Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Trip tracking", NotificationManager.IMPORTANCE_LOW,
-            ).apply { description = "Measuring distance for a detected trip" }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "Trip tracking", NotificationManager.IMPORTANCE_LOW,
+        ).apply { description = "Measuring distance for a detected trip" }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Tracking your trip")

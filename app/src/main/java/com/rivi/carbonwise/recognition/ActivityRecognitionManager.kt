@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionRequest
@@ -17,9 +18,12 @@ import com.google.android.gms.location.ActivityTransitionRequest
  * has auto-tracking switched on. Transition results are delivered to
  * [ActivityTransitionReceiver] via a broadcast PendingIntent.
  */
-class ActivityRecognitionManager(private val context: Context) {
+class ActivityRecognitionManager(context: Context) {
 
-    private val prefs = context.getSharedPreferences("carbonwise_tracking", Context.MODE_PRIVATE)
+    // Hold the application context so this can safely live as long as the process.
+    private val context = context.applicationContext
+
+    private val prefs = this.context.getSharedPreferences("carbonwise_tracking", Context.MODE_PRIVATE)
 
     /** The runtime permission only exists on API 29+; below that it's granted at install. */
     fun hasPermission(): Boolean =
@@ -73,7 +77,7 @@ class ActivityRecognitionManager(private val context: Context) {
         return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
 
-    private fun setEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
+    private fun setEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_ENABLED, enabled) }
 
     private fun buildTransitions(): List<ActivityTransition> =
         DetectedKind.tracked.flatMap { activityType ->

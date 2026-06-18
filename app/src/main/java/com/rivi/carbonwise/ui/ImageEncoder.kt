@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import androidx.core.graphics.scale
 import java.io.ByteArrayOutputStream
 
 /** An attached image ready to send to Gemini, plus a downscaled [preview] bitmap for the UI. */
@@ -48,11 +49,6 @@ object ImageEncoder {
         val longest = maxOf(bitmap.width, bitmap.height)
         if (longest <= MAX_DIM) return bitmap
         val factor = MAX_DIM.toFloat() / longest
-        return Bitmap.createScaledBitmap(
-            bitmap,
-            (bitmap.width * factor).toInt(),
-            (bitmap.height * factor).toInt(),
-            true,
-        )
+        return bitmap.scale((bitmap.width * factor).toInt(), (bitmap.height * factor).toInt())
     }
 }

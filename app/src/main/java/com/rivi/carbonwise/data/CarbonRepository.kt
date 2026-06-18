@@ -23,7 +23,6 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -216,7 +215,7 @@ class CarbonRepository(
 
         val now = Instant.now()
         val entity = EntryEntity(
-            epochDay = LocalDate.ofInstant(now, zoneId).toEpochDay(),
+            epochDay = now.atZone(zoneId).toLocalDate().toEpochDay(),
             createdAt = now.toEpochMilli(),
             sentence = sentence,
             totalKg = footprint.totalKg,
@@ -267,8 +266,7 @@ class CarbonRepository(
     }
 
     private fun formatNumber(value: Double): String =
-        if (value == value.toLong().toDouble()) value.toLong().toString()
-        else String.format("%.1f", value)
+        com.rivi.carbonwise.domain.formatAmount(value)
 
     private fun EntryEntity.toLoggedDay(): LoggedDay = LoggedDay(
         id = id,

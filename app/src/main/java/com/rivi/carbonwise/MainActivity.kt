@@ -61,6 +61,11 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     TRENDS("trends", "Trends", Icons.AutoMirrored.Filled.ShowChart),
 }
 
+/**
+ * App scaffold and navigation. A bottom bar switches between the three top-level tabs
+ * (Today, History, Trends); the entry-detail screen is a full-screen route pushed on top.
+ * Both ViewModels are activity-scoped so History, Trends, and Detail share one data source.
+ */
 @Composable
 private fun CarbonWiseApp() {
     val navController = rememberNavController()

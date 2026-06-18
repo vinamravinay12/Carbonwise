@@ -22,11 +22,7 @@ fun Category.style(): CategoryStyle = when (this) {
     Category.HOME -> CategoryStyle(HomeColor, Icons.Filled.Home, label)
 }
 
-/** Compact number formatting used across the UI (no trailing ".0"). */
-fun formatKg(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString()
-    else String.format("%.1f", value)
+/** Compact number formatting used across the UI; delegates to the shared formatter. */
+fun formatKg(value: Double): String = com.rivi.carbonwise.domain.formatAmount(value)
 
-fun formatQty(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString()
-    else String.format("%.1f", value)
+fun formatQty(value: Double): String = com.rivi.carbonwise.domain.formatAmount(value)

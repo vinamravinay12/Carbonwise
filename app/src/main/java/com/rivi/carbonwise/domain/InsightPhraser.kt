@@ -71,7 +71,5 @@ object InsightPhraser {
         Benchmarks.Band.HIGH -> "Above the ${fmt(Benchmarks.AVERAGE_DAILY_KG)} kg daily average for now."
     }
 
-    private fun fmt(value: Double): String =
-        if (value == value.toLong().toDouble()) value.toLong().toString()
-        else String.format("%.1f", value)
+    private fun fmt(value: Double): String = formatAmount(value)
 }

@@ -39,6 +39,11 @@ data class HomeUiState(
     val needsLocationPermission: Boolean = false,
 )
 
+/**
+ * Drives the Today tab: manual day-logging, the Compare/"Ask AI" conversation, and the
+ * auto-tracking surface (toggle, permission prompts, pending detections, confirm-to-log).
+ * Holds all screen state in a single immutable [HomeUiState] exposed as a [StateFlow].
+ */
 class HomeViewModel(
     private val repository: CarbonRepository,
     private val recognition: ActivityRecognitionManager,

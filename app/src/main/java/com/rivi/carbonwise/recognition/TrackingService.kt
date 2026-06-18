@@ -38,12 +38,10 @@ class TrackingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun buildNotification(): android.app.Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Auto-tracking", NotificationManager.IMPORTANCE_MIN,
-            ).apply { description = "Keeps CarbonWise watching for trips" }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "Auto-tracking", NotificationManager.IMPORTANCE_MIN,
+        ).apply { description = "Keeps CarbonWise watching for trips" }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         val tap = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

@@ -44,10 +44,10 @@ class GeminiVehicleClassifier(
         Do NOT output any carbon/CO2 number — only the mode name.
 
         Trip summary:
-        - distance: ${"%.1f".format(f.distanceKm)} km
+        - distance: ${String.format(java.util.Locale.US, "%.1f", f.distanceKm)} km
         - duration: ${f.durationMinutes} min
-        - average speed: ${"%.0f".format(f.avgSpeedKmh)} km/h
-        - top speed: ${"%.0f".format(f.maxSpeedKmh)} km/h
+        - average speed: ${String.format(java.util.Locale.US, "%.0f", f.avgSpeedKmh)} km/h
+        - top speed: ${String.format(java.util.Locale.US, "%.0f", f.maxSpeedKmh)} km/h
         - stops (near-zero-speed dwells): ${f.stopCount}
         - GPS signal dropouts (e.g. tunnels): ${f.gpsGaps}
 

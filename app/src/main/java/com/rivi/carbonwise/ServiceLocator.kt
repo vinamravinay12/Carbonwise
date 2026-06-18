@@ -1,5 +1,6 @@
 package com.rivi.carbonwise
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.rivi.carbonwise.advisor.GeminiComparator
 import com.rivi.carbonwise.advisor.GeminiImpactNarrator
@@ -26,6 +27,9 @@ object ServiceLocator {
     @Volatile
     private var repository: CarbonRepository? = null
 
+    // Holds only the application context (see ActivityRecognitionManager), so this singleton
+    // reference is safe for the process lifetime, not a leak.
+    @SuppressLint("StaticFieldLeak")
     @Volatile
     private var recognitionManager: ActivityRecognitionManager? = null
 
