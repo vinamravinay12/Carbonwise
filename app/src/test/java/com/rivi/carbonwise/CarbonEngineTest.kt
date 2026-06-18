@@ -2,7 +2,9 @@ package com.rivi.carbonwise
 
 import com.rivi.carbonwise.domain.CarbonEngine
 import com.rivi.carbonwise.domain.Category
+import com.rivi.carbonwise.domain.EmissionFactor
 import com.rivi.carbonwise.domain.ParsedActivity
+import com.rivi.carbonwise.domain.Unit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -46,6 +48,23 @@ class CarbonEngineTest {
     }
 
     @Test
+    fun `prices an AI-supplied custom factor for an off-table activity`() {
+        val custom = EmissionFactor(
+            type = "ai:mac_mini",
+            category = Category.ELECTRICITY,
+            displayName = "Mac Mini + 2 monitors",
+            unit = Unit.HOUR,
+            kgCo2PerUnit = 0.09,
+            estimated = true,
+        )
+        val footprint = engine.compute(
+            listOf(ParsedActivity(type = "ai:mac_mini", quantity = 5.0, customFactor = custom)),
+        )
+        assertEquals(0.45, footprint.totalKg, 0.0001) // 5 h × 0.09
+        assertTrue("custom factor should be flagged estimated", footprint.activities.single().factor.estimated)
+    }
+
+    @Test
     fun `unknown activity types are skipped, not guessed`() {
         val footprint = engine.compute(
             listOf(
@@ -68,6 +87,17 @@ class CarbonEngineTest {
     fun `driving earns no avoided credit`() {
         val footprint = engine.compute(listOf(ParsedActivity("car_petrol", 10.0)))
         assertEquals(0.0, footprint.avoidedKg, 0.0001)
+        assertEquals(footprint.totalKg, footprint.netKg, 0.0001) // nothing avoided → net == emitted
+    }
+
+    @Test
+    fun `net footprint subtracts emissions avoided by active travel`() {
+        val footprint = engine.compute(
+            listOf(ParsedActivity("car_petrol", 20.0), ParsedActivity("bicycle", 10.0)),
+        )
+        assertEquals(3.84, footprint.totalKg, 0.0001) // 20 km petrol; bicycle emits 0
+        assertEquals(1.92, footprint.avoidedKg, 0.0001) // 10 km × 0.192 driving baseline
+        assertEquals(1.92, footprint.netKg, 0.0001) // 3.84 − 1.92
     }
 
     @Test

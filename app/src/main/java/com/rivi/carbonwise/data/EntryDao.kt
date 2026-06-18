@@ -17,6 +17,10 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE id = :id")
     suspend fun getById(id: Long): EntryEntity?
 
+    /** The most recently logged entry, for trend-aware impact comparison. */
+    @Query("SELECT * FROM entries ORDER BY createdAt DESC LIMIT 1")
+    suspend fun latest(): EntryEntity?
+
     @Query("DELETE FROM entries WHERE id = :id")
     suspend fun deleteById(id: Long)
 }

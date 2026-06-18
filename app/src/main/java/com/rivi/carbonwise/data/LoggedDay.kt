@@ -12,4 +12,5 @@ data class LoggedDay(
     val footprint: Footprint,
     val swap: Swap?,
     val unrecognized: List<String>,
+    val impactNarrative: String? = null,
 )

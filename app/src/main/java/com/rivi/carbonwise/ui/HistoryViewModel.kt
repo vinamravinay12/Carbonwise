@@ -36,7 +36,7 @@ class HistoryViewModel(private val repository: CarbonRepository) : ViewModel() {
 
     private fun buildTrend(days: List<LoggedDay>, daysBack: Int): List<TrendDay> {
         val totalsByDay = days.groupBy { it.epochDay }
-            .mapValues { (_, entries) -> entries.sumOf { it.footprint.totalKg } }
+            .mapValues { (_, entries) -> entries.sumOf { it.footprint.netKg } }
         val today = LocalDate.now().toEpochDay()
         return (daysBack - 1 downTo 0).map { offset ->
             val epochDay = today - offset

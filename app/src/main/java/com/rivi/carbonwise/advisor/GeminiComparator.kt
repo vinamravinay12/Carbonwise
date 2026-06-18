@@ -1,9 +1,7 @@
 package com.rivi.carbonwise.advisor
 
-import com.google.ai.client.generativeai.Chat
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
-import com.google.ai.client.generativeai.type.generationConfig
+import com.rivi.carbonwise.ai.GeminiClient
+import com.rivi.carbonwise.ai.GeminiTurn
 import com.rivi.carbonwise.data.CompareOption
 import com.rivi.carbonwise.data.CompareReply
 import com.rivi.carbonwise.data.CompareResult
@@ -20,28 +18,34 @@ class GeminiComparator(
     apiKey: String,
     modelName: String = "gemini-2.5-flash",
 ) {
-    private val model = GenerativeModel(
-        modelName = modelName,
-        apiKey = apiKey,
-        generationConfig = generationConfig {
-            temperature = 0.3f
-            responseMimeType = "application/json"
-        },
-        systemInstruction = content { text(SYSTEM_INSTRUCTION) },
-    )
-
+    private val client = GeminiClient(apiKey = apiKey, model = modelName)
     private val json = Json { ignoreUnknownKeys = true }
-    private var chat: Chat = model.startChat()
+
+    /** Conversation history (alternating user/model turns) kept for follow-up context. */
+    private val history = mutableListOf<GeminiTurn>()
 
     /** Start a fresh conversation (clears all prior context). */
     fun reset() {
-        chat = model.startChat()
+        history.clear()
     }
 
-    suspend fun send(message: String): CompareReply {
-        val response = chat.sendMessage(message)
-        val text = response.text?.trim().orEmpty()
+    suspend fun send(
+        message: String,
+        imageBase64: String? = null,
+        imageMime: String? = null,
+    ): CompareReply {
+        // Send history + the current turn (with image, if any). Store history text-only so we
+        // don't resend image bytes every turn; the model's reply carries the visual context.
+        val turns = history + GeminiTurn("user", message, imageBase64, imageMime)
+        val text = client.generate(
+            turns = turns,
+            systemInstruction = SYSTEM_INSTRUCTION,
+            jsonOutput = true,
+            temperature = 0.3,
+        )
         if (text.isEmpty()) return CompareReply("Sorry, I didn't catch that — try rephrasing.", null)
+        history.add(GeminiTurn("user", if (imageBase64 != null) "$message [shared an image]" else message))
+        history.add(GeminiTurn("model", text))
 
         val parsed = runCatching { json.decodeFromString<Response>(text) }.getOrNull()
             ?: return CompareReply(text, null) // not JSON → show as plain text
@@ -67,11 +71,12 @@ class GeminiComparator(
 
     private companion object {
         const val SYSTEM_INSTRUCTION = """
-            You are a friendly, conversational carbon-footprint assistant. Keep context across
-            the whole conversation and answer follow-up questions naturally. Keep replies short
-            and plain.
+            You are a friendly, knowledgeable carbon-footprint assistant. Answer ANY
+            carbon/climate question conversationally — comparisons, "list the biggest sources
+            of...", "how can I cut my commute emissions", general explanations, follow-ups.
+            Keep context across the whole conversation. Keep replies short and plain.
 
-            When the user asks to COMPARE options (which emits more CO₂):
+            When the user asks to COMPARE specific options (which emits more CO₂):
             - Compare on a fair common basis (same distance, servings, or duration); state that
               basis in the verdict (e.g. "for the same 20 km").
             - Return an "items" array; each item has: "name", "kgCo2" (estimated kg CO₂e on that
@@ -80,12 +85,14 @@ class GeminiComparator(
             - Do NOT assume a newer model emits more — newer cars are often MORE fuel-efficient.
               Reason from fuel type and realistic mileage (India-relevant where applicable).
 
-            When the user asks a FOLLOW-UP (e.g. "why?", "explain", "are you sure?"):
-            - Answer it in "reply", referring to the comparison already made. Leave "items" empty
-              unless they clearly ask for a new comparison. Do not flip your previous conclusion
-              unless you were genuinely wrong — then say so.
+            For any OTHER question (lists, explanations, advice, follow-ups like "why?"):
+            - Answer fully in "reply". Leave "items" and "verdict" empty. Use brief lines or a
+              short list inside "reply" when listing things.
 
-            Always fill "reply" with a short conversational answer. Respond with ONLY this JSON:
+            Be honest and non-alarmist; never claim a person's own emissions directly cause
+            their personal illness — climate impact is cumulative and collective.
+
+            Always fill "reply" with a conversational answer. Respond with ONLY this JSON:
             {"reply":"...","verdict":"...","items":[{"name":"...","kgCo2":0.0,"note":"..."}]}
             "verdict" and "items" may be empty for non-comparison replies.
         """

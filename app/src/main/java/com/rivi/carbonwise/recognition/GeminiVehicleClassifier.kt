@@ -1,8 +1,8 @@
 package com.rivi.carbonwise.recognition
 
 import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.generationConfig
+import com.rivi.carbonwise.ai.GeminiClient
+import com.rivi.carbonwise.ai.GeminiTurn
 import com.rivi.carbonwise.domain.EmissionFactors
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -18,22 +18,18 @@ class GeminiVehicleClassifier(
     modelName: String = "gemini-2.5-flash",
 ) : VehicleModeClassifier {
 
-    private val model = GenerativeModel(
-        modelName = modelName,
-        apiKey = apiKey,
-        generationConfig = generationConfig {
-            temperature = 0.1f
-            responseMimeType = "application/json"
-        },
-    )
+    private val client = GeminiClient(apiKey = apiKey, model = modelName)
 
     private val json = Json { ignoreUnknownKeys = true }
     private val allowed = DetectedKind.VEHICLE.candidateTypes
 
     override suspend fun classify(features: TripFeatures): String {
         return try {
-            val response = model.generateContent(buildPrompt(features))
-            val text = response.text?.trim().orEmpty()
+            val text = client.generate(
+                turns = listOf(GeminiTurn("user", buildPrompt(features))),
+                jsonOutput = true,
+                temperature = 0.1,
+            )
             val guess = json.decodeFromString<Guess>(text).mode
             if (guess in allowed && EmissionFactors.byType(guess) != null) guess
             else fallback.classify(features)

@@ -1,7 +1,7 @@
 package com.rivi.carbonwise.advisor
 
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.generationConfig
+import com.rivi.carbonwise.ai.GeminiClient
+import com.rivi.carbonwise.ai.GeminiTurn
 import com.rivi.carbonwise.domain.EmissionFactors
 import com.rivi.carbonwise.domain.Footprint
 import kotlinx.serialization.Serializable
@@ -20,14 +20,7 @@ class GeminiSwapAdvisor(
     modelName: String = "gemini-2.5-flash",
 ) : SwapAdvisor {
 
-    private val model = GenerativeModel(
-        modelName = modelName,
-        apiKey = apiKey,
-        generationConfig = generationConfig {
-            temperature = 0.2f
-            responseMimeType = "application/json"
-        },
-    )
+    private val client = GeminiClient(apiKey = apiKey, model = modelName)
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -42,8 +35,11 @@ class GeminiSwapAdvisor(
     override suspend fun suggest(footprint: Footprint): SwapSuggestion? {
         if (footprint.activities.isEmpty()) return null
 
-        val response = model.generateContent(buildPrompt(footprint))
-        val text = response.text?.trim().orEmpty().ifEmpty { return null }
+        val text = client.generate(
+            turns = listOf(GeminiTurn("user", buildPrompt(footprint))),
+            jsonOutput = true,
+            temperature = 0.2,
+        ).ifEmpty { return null }
         val suggestion = runCatching { json.decodeFromString<Suggestion>(text) }.getOrNull()
             ?: return null
 

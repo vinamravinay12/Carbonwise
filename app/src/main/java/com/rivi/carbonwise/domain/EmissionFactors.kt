@@ -42,6 +42,8 @@ object EmissionFactors {
         EmissionFactor("washing_machine", Category.ELECTRICITY, "Washing machine", Unit.HOUR, 0.41),
         EmissionFactor("tv", Category.ELECTRICITY, "Television", Unit.HOUR, 0.07),
         EmissionFactor("laptop", Category.ELECTRICITY, "Laptop", Unit.HOUR, 0.04),
+        EmissionFactor("desktop_computer", Category.ELECTRICITY, "Desktop computer", Unit.HOUR, 0.08),
+        EmissionFactor("monitor", Category.ELECTRICITY, "Monitor", Unit.HOUR, 0.03),
 
         // ---- Home / raw energy (per kWh) ----
         EmissionFactor("electricity_kwh", Category.HOME, "Grid electricity", Unit.KWH, 0.71),

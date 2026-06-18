@@ -2,6 +2,7 @@ package com.rivi.carbonwise
 
 import android.content.Context
 import com.rivi.carbonwise.advisor.GeminiComparator
+import com.rivi.carbonwise.advisor.GeminiImpactNarrator
 import com.rivi.carbonwise.advisor.GeminiSwapAdvisor
 import com.rivi.carbonwise.advisor.SwapAdvisor
 import com.rivi.carbonwise.data.CarbonDatabase
@@ -56,6 +57,7 @@ object ServiceLocator {
             swapAdvisor = buildSwapAdvisor(key),
             vehicleClassifier = buildVehicleClassifier(key),
             comparator = if (key.isNotBlank()) GeminiComparator(apiKey = key) else null,
+            impactNarrator = if (key.isNotBlank()) GeminiImpactNarrator(apiKey = key) else null,
         )
     }
 

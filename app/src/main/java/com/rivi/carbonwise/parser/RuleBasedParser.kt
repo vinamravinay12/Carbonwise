@@ -42,7 +42,9 @@ class RuleBasedParser : ActivityParser {
         listOf("water heater", "geyser") to "geyser",
         listOf("washing machine", "laundry", "washer") to "washing_machine",
         listOf("television", " tv", "tv ") to "tv",
-        listOf("laptop", "computer", "pc ") to "laptop",
+        listOf("mac mini", "imac", "desktop", "workstation", "gaming pc", "computer setup") to "desktop_computer",
+        listOf("monitor", "monitors", "display", "external screen") to "monitor",
+        listOf("laptop", "macbook", "computer", "pc ") to "laptop",
         // home
         listOf("lpg", "gas stove", "cooking gas", "stove") to "lpg",
         listOf("kwh", "units of electricity", "electricity") to "electricity_kwh",

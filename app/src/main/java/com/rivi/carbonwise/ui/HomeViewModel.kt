@@ -13,11 +13,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** One bubble in the Compare conversation. */
+/** One bubble in the Compare conversation. [image] is a thumbnail the user attached. */
 data class CompareMessage(
     val fromUser: Boolean,
     val text: String,
     val result: CompareResult? = null,
+    val image: android.graphics.Bitmap? = null,
 )
 
 enum class InputMode { LOG, COMPARE }
@@ -80,22 +81,26 @@ class HomeViewModel(
         _state.update { it.copy(mode = mode, error = null, input = "") }
     }
 
-    /** Compare-mode: send a message in the ongoing conversation (memory kept by Gemini). */
-    fun sendCompare() {
+    /** Compare-mode: send a message (optionally with an image) in the ongoing conversation. */
+    fun sendCompare(image: AttachedImage? = null) {
         val message = _state.value.input.trim()
-        if (message.isEmpty() || _state.value.isComparing) return
+        if ((message.isEmpty() && image == null) || _state.value.isComparing) return
+
+        // With an image but no text, ask a sensible default question.
+        val prompt = message.ifEmpty { "What is this, and what's its carbon impact?" }
 
         _state.update {
             it.copy(
                 input = "",
                 error = null,
                 isComparing = true,
-                compareMessages = it.compareMessages + CompareMessage(fromUser = true, text = message),
+                compareMessages = it.compareMessages +
+                    CompareMessage(fromUser = true, text = message, image = image?.preview),
             )
         }
         viewModelScope.launch {
             val reply = try {
-                repository.askComparison(message)
+                repository.askComparison(prompt, image?.base64, image?.mime)
             } catch (e: Exception) {
                 com.rivi.carbonwise.data.CompareReply("Something went wrong: ${e.message}", null)
             }
@@ -147,6 +152,31 @@ class HomeViewModel(
         _state.update { it.copy(result = null) }
     }
 
+    /** Delete the just-logged entry and return to the input. */
+    fun deleteResult() {
+        val day = _state.value.result ?: return
+        viewModelScope.launch {
+            repository.delete(day.id)
+            _state.update { it.copy(result = null) }
+        }
+    }
+
+    /** Re-analyse the same sentence (useful since the AI estimate can vary run to run). */
+    fun refreshResult() {
+        val day = _state.value.result ?: return
+        if (_state.value.isLogging) return
+        _state.update { it.copy(isLogging = true, error = null) }
+        viewModelScope.launch {
+            try {
+                repository.delete(day.id)
+                val refreshed = repository.logDay(day.sentence)
+                _state.update { it.copy(isLogging = false, result = refreshed) }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLogging = false, error = "Couldn't refresh: ${e.message}") }
+            }
+        }
+    }
+
     // ---- Auto-tracking ----
 
     fun onToggleTracking(enable: Boolean) {
@@ -178,13 +208,14 @@ class HomeViewModel(
     }
 
     fun confirmDetection(trip: DetectedTrip, factorType: String, distanceKm: Double) {
-        if (distanceKm <= 0) return
+        if (distanceKm <= 0 || _state.value.isLogging) return
+        _state.update { it.copy(isLogging = true, error = null) }
         viewModelScope.launch {
             try {
                 val day = repository.confirmDetection(trip.id, factorType, distanceKm)
-                _state.update { it.copy(result = day) }
+                _state.update { it.copy(isLogging = false, result = day) }
             } catch (e: Exception) {
-                _state.update { it.copy(error = "Couldn't log that trip: ${e.message}") }
+                _state.update { it.copy(isLogging = false, error = "Couldn't log that trip: ${e.message}") }
             }
         }
     }

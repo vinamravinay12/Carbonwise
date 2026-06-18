@@ -78,7 +78,7 @@ fun HistoryScreen(
 
 @Composable
 private fun HistoryRow(day: LoggedDay, onClick: () -> Unit) {
-    val bandColor = when (Benchmarks.band(day.footprint.totalKg)) {
+    val bandColor = when (Benchmarks.band(day.footprint.netKg)) {
         Benchmarks.Band.LOW -> BandLow
         Benchmarks.Band.AVERAGE -> BandAverage
         Benchmarks.Band.HIGH -> BandHigh
@@ -113,7 +113,7 @@ private fun HistoryRow(day: LoggedDay, onClick: () -> Unit) {
             Spacer(Modifier.width(14.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatKg(day.footprint.totalKg),
+                    text = formatKg(day.footprint.netKg),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = bandColor,

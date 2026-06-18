@@ -129,7 +129,8 @@ fun ActivityRow(activity: ComputedActivity, modifier: Modifier = Modifier) {
             )
             Text(
                 text = "${formatQty(activity.quantity)} ${activity.factor.unit.symbol} × " +
-                    "${formatKg(activity.factor.kgCo2PerUnit)} kg/${activity.factor.unit.symbol}",
+                    "${formatKg(activity.factor.kgCo2PerUnit)} kg/${activity.factor.unit.symbol}" +
+                    if (activity.factor.estimated) "  ·  AI estimate" else "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -78,7 +78,6 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.generativeai)
     implementation(libs.play.services.location)
 
     testImplementation(libs.junit)

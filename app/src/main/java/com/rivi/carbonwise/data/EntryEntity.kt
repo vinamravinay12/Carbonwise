@@ -18,4 +18,5 @@ data class EntryEntity(
     val footprintJson: String,
     val swapJson: String?,
     val unrecognizedJson: String,
+    val impactNarrative: String? = null,
 )

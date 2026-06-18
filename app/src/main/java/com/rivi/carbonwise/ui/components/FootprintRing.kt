@@ -30,6 +30,7 @@ fun FootprintRing(
     totalKg: Double,
     byCategory: Map<Category, Double>,
     modifier: Modifier = Modifier,
+    subtitle: String = "kg CO₂ today",
     size: Int = 220,
     strokeWidth: Float = 34f,
 ) {
@@ -82,7 +83,7 @@ fun FootprintRing(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "kg CO₂ today",
+                    text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

@@ -12,15 +12,18 @@ object InsightPhraser {
         if (footprint.activities.isEmpty()) {
             return "Nothing logged yet — describe your day to see its footprint."
         }
+        if (footprint.netKg <= 0.0 && footprint.avoidedKg > 0.0) {
+            return "Carbon-positive day — you avoided more by going active than you emitted. Brilliant."
+        }
         val top = footprint.byCategory.maxByOrNull { it.value }
-        return when (Benchmarks.band(footprint.totalKg)) {
+        return when (Benchmarks.band(footprint.netKg)) {
             Benchmarks.Band.LOW ->
-                "Lovely — a light day at ${fmt(footprint.totalKg)} kg, below the climate-friendly mark."
+                "Lovely — a light day at ${fmt(footprint.netKg)} kg, below the climate-friendly mark."
             Benchmarks.Band.AVERAGE ->
-                "A steady day at ${fmt(footprint.totalKg)} kg." +
+                "A steady day at ${fmt(footprint.netKg)} kg." +
                     (top?.let { " ${it.key.label} was your biggest share." } ?: "")
             Benchmarks.Band.HIGH ->
-                "Heavier day at ${fmt(footprint.totalKg)} kg" +
+                "Heavier day at ${fmt(footprint.netKg)} kg" +
                     (top?.let { ", mostly from ${it.key.label.lowercase()}." } ?: ".") +
                     " One small swap can pull it down."
         }

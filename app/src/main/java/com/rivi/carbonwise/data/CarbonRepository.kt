@@ -2,6 +2,7 @@ package com.rivi.carbonwise.data
 
 import android.util.Log
 import com.rivi.carbonwise.advisor.GeminiComparator
+import com.rivi.carbonwise.advisor.GeminiImpactNarrator
 import com.rivi.carbonwise.advisor.SwapAdvisor
 import com.rivi.carbonwise.domain.CarbonEngine
 import com.rivi.carbonwise.domain.EmissionFactors
@@ -14,6 +15,8 @@ import com.rivi.carbonwise.recognition.DetectedKind
 import com.rivi.carbonwise.recognition.HeuristicVehicleClassifier
 import com.rivi.carbonwise.recognition.TripFeatures
 import com.rivi.carbonwise.recognition.VehicleModeClassifier
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -37,6 +40,7 @@ class CarbonRepository(
     private val swapAdvisor: SwapAdvisor? = null,
     private val vehicleClassifier: VehicleModeClassifier = HeuristicVehicleClassifier,
     private val comparator: GeminiComparator? = null,
+    private val impactNarrator: GeminiImpactNarrator? = null,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -59,13 +63,20 @@ class CarbonRepository(
      * "why?" keep context) returning AI estimates; without a key it falls back to a one-shot
      * deterministic comparison over known categories. Nothing is saved — it's exploratory.
      */
-    suspend fun askComparison(message: String): CompareReply {
+    suspend fun askComparison(
+        message: String,
+        imageBase64: String? = null,
+        imageMime: String? = null,
+    ): CompareReply {
         comparator?.let { ai ->
             try {
-                return ai.send(message)
+                return ai.send(message, imageBase64, imageMime)
             } catch (e: Exception) {
                 Log.w("CarbonWise", "AI comparator failed, using engine: ${e.message}")
             }
+        }
+        if (imageBase64 != null) {
+            return CompareReply("I can only analyse images with a Gemini API key configured.", null)
         }
         // Deterministic fallback over known categories (no conversation memory).
         val parsed = parser.parse(message)
@@ -186,8 +197,22 @@ class CarbonRepository(
         unrecognized: List<String>,
     ): LoggedDay {
         val footprint = engine.compute(activities)
-        val swap = bestSwap(footprint)
-            ?.let { it.copy(message = InsightPhraser.swapMessage(it)) }
+        val previousKg = dao.latest()?.totalKg
+
+        // The swap suggestion and the impact summary each hit the network; run them together.
+        val (swap, narrative) = coroutineScope {
+            val swapJob = async {
+                bestSwap(footprint)?.let { it.copy(message = InsightPhraser.swapMessage(it)) }
+            }
+            val narrativeJob = async {
+                impactNarrator?.let {
+                    runCatching { it.narrate(footprint, previousKg) }
+                        .onFailure { e -> Log.w("CarbonWise", "Impact narrator failed: ${e.message}") }
+                        .getOrNull()
+                }
+            }
+            swapJob.await() to narrativeJob.await()
+        }
 
         val now = Instant.now()
         val entity = EntryEntity(
@@ -200,6 +225,7 @@ class CarbonRepository(
             unrecognizedJson = json.encodeToString(
                 ListSerializer(String.serializer()), unrecognized,
             ),
+            impactNarrative = narrative,
         )
         val id = dao.insert(entity)
         return entity.copy(id = id).toLoggedDay()
@@ -211,6 +237,8 @@ class CarbonRepository(
      * deterministic rule-based swap so the insight is always present.
      */
     private suspend fun bestSwap(footprint: Footprint): Swap? {
+        // Nothing emitted (e.g. a walk/cycle) → nothing to swap; skip the network call.
+        if (footprint.totalKg <= 0.0) return null
         swapAdvisor?.let { advisor ->
             try {
                 val suggestion = advisor.suggest(footprint)
@@ -252,6 +280,7 @@ class CarbonRepository(
         unrecognized = json.decodeFromString(
             ListSerializer(String.serializer()), unrecognizedJson,
         ),
+        impactNarrative = impactNarrative,
     )
 
     private companion object {

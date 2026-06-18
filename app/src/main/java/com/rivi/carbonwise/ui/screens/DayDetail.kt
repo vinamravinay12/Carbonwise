@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
@@ -22,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.rivi.carbonwise.data.LoggedDay
+import com.rivi.carbonwise.domain.Footprint
+import com.rivi.carbonwise.domain.ImpactNotes
 import com.rivi.carbonwise.domain.InsightPhraser
+import com.rivi.carbonwise.ui.formatKg
 import com.rivi.carbonwise.ui.components.ActivityRow
 import com.rivi.carbonwise.ui.components.AvoidedCard
 import com.rivi.carbonwise.ui.components.BenchmarkGauge
@@ -47,8 +51,16 @@ fun DayDetailContent(day: LoggedDay, modifier: Modifier = Modifier) {
         SectionCard {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 FootprintRing(
-                    totalKg = footprint.totalKg,
+                    totalKg = footprint.netKg,
                     byCategory = footprint.byCategory,
+                    subtitle = if (footprint.avoidedKg > 0) "kg CO₂ net" else "kg CO₂ today",
+                )
+            }
+            if (footprint.avoidedKg > 0) {
+                Text(
+                    text = "${formatKg(footprint.totalKg)} kg emitted − ${formatKg(footprint.avoidedKg)} kg avoided by active travel",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
@@ -56,8 +68,11 @@ fun DayDetailContent(day: LoggedDay, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            BenchmarkGauge(totalKg = footprint.totalKg)
+            BenchmarkGauge(totalKg = footprint.netKg)
         }
+
+        // ---- What this means (AI summary, or curated notes offline) ----
+        ImpactCard(narrative = day.impactNarrative, footprint = footprint)
 
         // ---- Emissions avoided by active travel ----
         if (footprint.avoidedKg > 0) {
@@ -127,5 +142,47 @@ fun DayDetailContent(day: LoggedDay, modifier: Modifier = Modifier) {
             }
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ImpactCard(narrative: String?, footprint: Footprint) {
+    val notes = if (narrative != null) emptyList() else ImpactNotes.forFootprint(footprint)
+    if (narrative == null && notes.isEmpty()) return
+
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel("What this means")
+            if (narrative != null) {
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.height(14.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "AI",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (narrative != null) {
+            Text(
+                text = narrative,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        } else {
+            notes.forEach { note ->
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
     }
 }

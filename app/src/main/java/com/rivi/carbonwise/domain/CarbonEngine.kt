@@ -43,7 +43,8 @@ class CarbonEngine(
     /** Apply factors to parsed activities. Unknown types are silently skipped. */
     fun compute(parsed: List<ParsedActivity>): Footprint {
         val computed = parsed.mapNotNull { a ->
-            val factor = factors(a.type) ?: return@mapNotNull null
+            // Known type → table factor; otherwise the AI-supplied estimate, if present.
+            val factor = factors(a.type) ?: a.customFactor ?: return@mapNotNull null
             val kg = round(a.quantity * factor.kgCo2PerUnit)
             ComputedActivity(
                 factor = factor,

@@ -41,14 +41,21 @@ data class EmissionFactor(
     val displayName: String,   // human label, e.g. "Petrol car"
     val unit: Unit,
     val kgCo2PerUnit: Double,
+    /** True when the AI supplied this factor for an item the table doesn't cover (an estimate). */
+    val estimated: Boolean = false,
 )
 
-/** What the parser produces: what was done and how much, nothing computed yet. */
+/**
+ * What the parser produces: what was done and how much, nothing computed yet.
+ * [customFactor] is set when the AI estimated a factor for an item not in the table, so the
+ * engine can still price it (quantity × the AI-supplied per-unit value).
+ */
 @Serializable
 data class ParsedActivity(
     val type: String,
     val quantity: Double,
     val rawText: String = "",
+    val customFactor: EmissionFactor? = null,
 )
 
 /** Result of parsing a sentence. Unrecognised fragments are surfaced, never guessed. */
@@ -77,7 +84,14 @@ data class Footprint(
     val totalKg: Double,
     val byCategory: Map<Category, Double>,
     val avoidedKg: Double = 0.0,
-)
+) {
+    /**
+     * Net footprint after crediting zero-carbon active travel: emitted minus avoided. Can go
+     * below zero on a greener-than-driving day. This is the headline figure; [totalKg] remains
+     * the literal emitted amount. Computed (not stored), so it's always correct for old entries.
+     */
+    val netKg: Double get() = totalKg - avoidedKg
+}
 
 /**
  * A side-by-side comparison answering "which produces more carbon?". [items] are the
